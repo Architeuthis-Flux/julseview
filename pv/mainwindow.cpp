@@ -67,7 +67,7 @@ namespace pv {
 
 using toolbars::MainBar;
 
-const QString MainWindow::WindowTitle = tr("PulseView");
+const QString MainWindow::WindowTitle = tr("JulseView");
 
 MainWindow::MainWindow(DeviceManager &device_manager, QWidget *parent) :
 	QMainWindow(parent),
@@ -636,7 +636,7 @@ shared_ptr<Session> MainWindow::get_tab_session(int index) const
 void MainWindow::closeEvent(QCloseEvent *event)
 {
 	bool data_saved = true;
-
+	return;
 	for (auto& entry : session_windows_)
 		if (!entry.first->data_saved())
 			data_saved = false;

@@ -62,7 +62,7 @@ Application::Application(int &argc, char* argv[]) :
 	QApplication(argc, argv)
 {
 	setApplicationVersion(PV_VERSION_STRING);
-	setApplicationName("PulseView");
+	setApplicationName("JulseView");
 	setOrganizationName("sigrok");
 	setOrganizationDomain("sigrok.org");
 }

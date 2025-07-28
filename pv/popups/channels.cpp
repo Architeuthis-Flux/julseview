@@ -17,6 +17,8 @@
  * along with this program; if not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <config.h>
+
 #include <map>
 
 #include <QApplication>
@@ -26,6 +28,10 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QPushButton>
+#include <QSignalMapper>
+#include <QVBoxLayout>
+#include <QDebug>
 
 #include "channels.hpp"
 
@@ -74,8 +80,17 @@ Channels::Channels(Session &session, QWidget *parent) :
 	// Create the layout
 	setLayout(&layout_);
 
+	// Safety check: ensure we have a valid device before proceeding
+	if (!session_.device()) {
+		qWarning() << "Channels popup: No device in session";
+		return;
+	}
+
 	const shared_ptr<sigrok::Device> device = session_.device()->device();
-	assert(device);
+	if (!device) {
+		qWarning() << "Channels popup: Invalid device pointer";
+		return;
+	}
 
 	// Collect a set of signals
 	map<shared_ptr<Channel>, shared_ptr<SignalBase> > signal_map;
@@ -87,22 +102,37 @@ Channels::Channels(Session &session, QWidget *parent) :
 	for (const shared_ptr<SignalBase> &sig : sigs)
 		signal_map[sig->channel()] = sig;
 
-	// Populate channel groups
-	for (auto& entry : device->channel_groups()) {
-		const shared_ptr<ChannelGroup> group = entry.second;
-		// Make a set of signals and remove these signals from the signal map
-		vector< shared_ptr<SignalBase> > group_sigs;
-		for (auto& channel : group->channels()) {
-			const auto iter = signal_map.find(channel);
+	// Populate channel groups with error handling
+	try {
+		for (auto& entry : device->channel_groups()) {
+			const shared_ptr<ChannelGroup> group = entry.second;
+			
+			// Safety check: ensure the group is valid
+			if (!group) {
+				qWarning() << "Channels popup: Invalid channel group pointer";
+				continue;
+			}
+			
+			// Make a set of signals and remove these signals from the signal map
+			vector< shared_ptr<SignalBase> > group_sigs;
+			for (auto& channel : group->channels()) {
+				const auto iter = signal_map.find(channel);
 
-			if (iter == signal_map.end())
-				break;
+				if (iter == signal_map.end())
+					break;
 
-			group_sigs.push_back((*iter).second);
-			signal_map.erase(iter);
+				group_sigs.push_back((*iter).second);
+				signal_map.erase(iter);
+			}
+
+			populate_group(group, group_sigs);
 		}
-
-		populate_group(group, group_sigs);
+	} catch (const std::exception& e) {
+		qWarning() << "Channels popup: Error processing channel groups:" << e.what();
+		// Continue with the remaining initialization
+	} catch (...) {
+		qWarning() << "Channels popup: Unknown error processing channel groups";
+		// Continue with the remaining initialization
 	}
 
 	// Make a vector of the remaining channels
@@ -239,8 +269,25 @@ void Channels::populate_group(shared_ptr<ChannelGroup> group,
 	// Create a title if the group is going to have any content
 	if ((!sigs.empty() || (binding && !binding->properties().empty())) && group)
 	{
-		QLabel *label = new QLabel(
-			QString("<h3>%1</h3>").arg(group->name().c_str()));
+		// Safety check: ensure group name is valid before accessing it
+		QString group_name;
+		try {
+			// Try to get the group name safely
+			std::string name_str = group->name();
+			if (name_str.empty()) {
+				group_name = tr("Unnamed Group");
+			} else {
+				group_name = QString::fromStdString(name_str);
+			}
+		} catch (const std::exception& e) {
+			qWarning() << "Channels popup: Error accessing group name:" << e.what();
+			group_name = tr("Invalid Group");
+		} catch (...) {
+			qWarning() << "Channels popup: Unknown error accessing group name";
+			group_name = tr("Unknown Group");
+		}
+		
+		QLabel *label = new QLabel(QString("<h3>%1</h3>").arg(group_name));
 		group_layout->addWidget(label);
 		group_label_map_[group] = label;
 	}
@@ -331,17 +378,51 @@ void Channels::showEvent(QShowEvent *event)
 {
 	pv::widgets::Popup::showEvent(event);
 
+	// Safety check: ensure we have a valid device before proceeding
+	if (!session_.device() || !session_.device()->device()) {
+		qWarning() << "Channels popup showEvent: No valid device";
+		return;
+	}
+
 	const shared_ptr<sigrok::Device> device = session_.device()->device();
-	assert(device);
 
-	// Update group labels
-	for (auto& entry : device->channel_groups()) {
-		const shared_ptr<ChannelGroup> group = entry.second;
+	// Update group labels with error handling
+	try {
+		for (auto& entry : device->channel_groups()) {
+			const shared_ptr<ChannelGroup> group = entry.second;
 
-		if (group_label_map_.count(group) > 0) {
-			QLabel* label = group_label_map_[group];
-			label->setText(QString("<h3>%1</h3>").arg(group->name().c_str()));
+			if (!group) {
+				continue;
+			}
+
+			if (group_label_map_.count(group) > 0) {
+				QLabel* label = group_label_map_[group];
+				if (label) {
+					// Safety check: ensure group name is valid before accessing it
+					QString group_name;
+					try {
+						std::string name_str = group->name();
+						if (name_str.empty()) {
+							group_name = tr("Unnamed Group");
+						} else {
+							group_name = QString::fromStdString(name_str);
+						}
+					} catch (const std::exception& e) {
+						qWarning() << "Channels popup showEvent: Error accessing group name:" << e.what();
+						group_name = tr("Invalid Group");
+					} catch (...) {
+						qWarning() << "Channels popup showEvent: Unknown error accessing group name";
+						group_name = tr("Unknown Group");
+					}
+					
+					label->setText(QString("<h3>%1</h3>").arg(group_name));
+				}
+			}
 		}
+	} catch (const std::exception& e) {
+		qWarning() << "Channels popup showEvent: Error updating group labels:" << e.what();
+	} catch (...) {
+		qWarning() << "Channels popup showEvent: Unknown error updating group labels";
 	}
 
 	updating_channels_ = true;

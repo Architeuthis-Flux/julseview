@@ -20,6 +20,7 @@
 #include <cassert>
 
 #include <libsigrokcxx/libsigrokcxx.hpp>
+#include <libsigrok/libsigrok.h>
 
 #include <QGroupBox>
 #include <QLabel>
@@ -29,6 +30,7 @@
 
 #include <pv/devicemanager.hpp>
 #include <pv/devices/hardwaredevice.hpp>
+#include <pv/globalsettings.hpp>
 
 using std::list;
 using std::map;
@@ -67,6 +69,25 @@ Connect::Connect(QWidget *parent, pv::DeviceManager &device_manager) :
 
 	populate_drivers();
 	connect(&drivers_, SIGNAL(activated(int)), this, SLOT(driver_selected(int)));
+	
+	// Apply default device preferences from settings
+	GlobalSettings settings;
+	QString default_driver = settings.value(GlobalSettings::Key_Device_DefaultDriver).toString();
+	QString default_interface = settings.value(GlobalSettings::Key_Device_DefaultInterface).toString();
+	QString default_port = settings.value(GlobalSettings::Key_Device_DefaultSerialPort).toString();
+	QString default_baud = settings.value(GlobalSettings::Key_Device_DefaultBaudRate).toString();
+	
+	// Try to select default driver if available
+	if (!default_driver.isEmpty()) {
+		for (int i = 0; i < drivers_.count(); i++) {
+			QString item_text = drivers_.itemText(i);
+			if (item_text.contains(default_driver, Qt::CaseInsensitive)) {
+				drivers_.setCurrentIndex(i);
+				driver_selected(i);  // Trigger driver selection logic
+				break;
+			}
+		}
+	}
 
 	form_.setLayout(&form_layout_);
 
@@ -80,7 +101,14 @@ Connect::Connect(QWidget *parent, pv::DeviceManager &device_manager) :
 	QRadioButton *radiobtn_serial = new QRadioButton(tr("Serial &Port"), this);
 	QRadioButton *radiobtn_tcp = new QRadioButton(tr("&TCP/IP"), this);
 
-	radiobtn_usb->setChecked(true);
+	// Set default interface selection
+	if (default_interface == "serial") {
+		radiobtn_serial->setChecked(true);
+	} else if (default_interface == "tcp") {
+		radiobtn_tcp->setChecked(true);
+	} else {
+		radiobtn_usb->setChecked(true);  // Default fallback
+	}
 
 	serial_config_ = new QWidget();
 	QHBoxLayout *serial_config_layout = new QHBoxLayout(serial_config_);
@@ -96,10 +124,32 @@ Connect::Connect(QWidget *parent, pv::DeviceManager &device_manager) :
 	serial_baudrate_.addItem("19200");
 	serial_baudrate_.addItem("9600");
 
+	// Set default serial port and baud rate if available
+	if (!default_port.isEmpty()) {
+		serial_devices_.setEditText(default_port);
+	}
+	
+	if (!default_baud.isEmpty()) {
+		int baud_index = serial_baudrate_.findText(default_baud);
+		if (baud_index >= 0) {
+			serial_baudrate_.setCurrentIndex(baud_index);
+		} else {
+			serial_baudrate_.setEditText(default_baud);
+		}
+	}
+
 	serial_config_layout->addWidget(&serial_devices_);
 	serial_config_layout->addWidget(&serial_baudrate_);
 	serial_config_layout->addWidget(new QLabel("baud"));
-	serial_config_->setEnabled(false);
+	
+	// Enable serial config if serial is the default interface
+	if (default_interface == "serial") {
+		serial_config_->setEnabled(true);
+		serial_devices_.setEnabled(true);
+		serial_baudrate_.setEnabled(true);
+	} else {
+		serial_config_->setEnabled(false);
+	}
 
 	tcp_config_ = new QWidget();
 	QHBoxLayout *tcp_config_layout = new QHBoxLayout(tcp_config_);

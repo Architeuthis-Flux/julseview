@@ -106,7 +106,18 @@ void DeviceToolButton::update_device_list()
 		a->setCheckable(true);
 		a->setChecked(selected_device_ == dev);
 		a->setData(QVariant::fromValue((void*)dev.get()));
-		a->setToolTip(QString::fromStdString(dev->full_name()));
+		
+		// Safely get the full device name for tooltip
+		QString tooltip_text;
+		try {
+			tooltip_text = QString::fromStdString(dev->full_name());
+		} catch (const std::exception& e) {
+			tooltip_text = QString("Device information unavailable: %1").arg(e.what());
+		} catch (...) {
+			tooltip_text = QString("Device information unavailable");
+		}
+		a->setToolTip(tooltip_text);
+		
 		mapper_.setMapping(a, a);
 
 		connect(a, SIGNAL(triggered()), &mapper_, SLOT(map()));

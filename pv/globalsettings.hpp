@@ -83,6 +83,12 @@ public:
 	static const QString Key_Dec_AlwaysShowAllRows;
 	static const QString Key_Log_BufferSize;
 	static const QString Key_Log_NotifyOfStacktrace;
+	
+	// Device Connection Defaults
+	static const QString Key_Device_DefaultDriver;
+	static const QString Key_Device_DefaultInterface;
+	static const QString Key_Device_DefaultSerialPort;
+	static const QString Key_Device_DefaultBaudRate;
 
 	enum ConvThrDispMode {
 		ConvThrDispMode_None = 0,

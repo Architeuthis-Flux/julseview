@@ -1,0 +1,95 @@
+CompileFlags:
+  Compiler: clang++
+  Add:
+    # Qt5 include paths (Homebrew)
+    - "-I/opt/homebrew/opt/qt@5/include"
+    - "-I/opt/homebrew/opt/qt@5/include/QtCore"
+    - "-I/opt/homebrew/opt/qt@5/include/QtGui" 
+    - "-I/opt/homebrew/opt/qt@5/include/QtWidgets"
+    - "-I/opt/homebrew/opt/qt@5/include/QtSvg"
+    - "-I/opt/homebrew/opt/qt@5/include/QtOpenGL"
+    - "-I/opt/homebrew/opt/qt@5/include/QtPrintSupport"
+    
+    # System includes for macOS
+    - "-I/usr/local/include"
+    - "-I/opt/homebrew/include"
+    
+    # GLib includes (required for libsigrok)
+    - "-I/opt/homebrew/Cellar/glib/2.84.3/include/glib-2.0"
+    - "-I/opt/homebrew/Cellar/glib/2.84.3/lib/glib-2.0/include"
+    - "-I/opt/homebrew/opt/gettext/include"
+    - "-I/opt/homebrew/Cellar/pcre2/10.45/include"
+    
+    # libsigrok includes
+    - "-I/usr/local/include/libsigrok"
+    - "-I/usr/local/include/libsigrokcxx"
+    - "-I/usr/local/include/libsigrokdecode"
+    
+    # Boost includes  
+    - "-I/opt/homebrew/include/boost"
+    
+    # Project includes
+    - "-I."
+    - "-Ipv"
+    
+    # Generated MOC files and config (common locations)
+    - "-Ibuild"
+    - "-Ibuild/moc"
+    
+    # Include build directory for config.h
+    - "-include build/config.h"
+    
+    # Additional system headers
+    - "-I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include"
+    - "-I/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/System/Library/Frameworks"
+    
+    # Qt preprocessor defines
+    - "-DQT_CORE_LIB"
+    - "-DQT_GUI_LIB" 
+    - "-DQT_WIDGETS_LIB"
+    - "-DQT_SVG_LIB"
+    - "-DQT_OPENGL_LIB"
+    - "-DQT_PRINTSUPPORT_LIB"
+    - "-DQT_NO_DEBUG"
+    - "-DENABLE_DECODE=0"
+    - "-DQT_VERSION=0x050f10"  # Qt 5.15.16
+    - "-DQT_VERSION_STR=\"5.15.16\""
+    
+    # Application defines (most come from config.h)
+    - "-DAPPLICATION_NAME=\"JulseView\""
+    - "-DPV_VERSION_STRING=\"0.5.0\""
+    - "-DPV_TITLE=\"JulseView\""
+    - "-DPV_GLIBMM_VERSION=\"2.66.8\""
+    
+    # libsigrok defines
+    - "-DSR_PACKAGE_VERSION_STRING=\"0.6.0\""
+    - "-DSR_LIB_VERSION_STRING=\"0.6.0\""
+    
+    # Standard library defines
+    - "-D_GNU_SOURCE"
+    
+    # Force include standard headers for better compatibility
+    - "-include cstring"
+    - "-include memory"
+    
+    # C++ standard
+    - "-std=c++17"
+    - "-stdlib=libc++"
+    
+    # macOS specific
+    - "-mmacosx-version-min=10.15"
+    
+    # Common warning suppressions for Qt
+    - "-Wno-deprecated-declarations"
+    - "-Wno-unused-parameter"
+    - "-Wno-inconsistent-missing-override"
+    - "-Wno-unknown-pragmas"
+    - "-Wno-gnu-zero-variadic-macro-arguments"
+
+---
+Diagnostics:
+  ClangTidy:
+    Remove: 
+      - misc-definitions-in-headers
+      - modernize-use-trailing-return-type
+  UnusedIncludes: None 

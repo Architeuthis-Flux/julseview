@@ -283,7 +283,7 @@ memaccess_check_unaligned_le(HAVE_UNALIGNED_LITTLE_ENDIAN_ACCESS)
 #= Config Header
 #-------------------------------------------------------------------------------
 
-set(PV_TITLE PulseView)
+set(PV_TITLE JulseView)
 set(PV_VERSION_STRING "0.5.0")
 
 if(GLIBMM_2_4_FOUND)
@@ -396,16 +396,17 @@ set(pulseview_SOURCES
 	pv/views/viewbase.cpp
 	pv/views/trace/standardbar.cpp
 	pv/widgets/colorbutton.cpp
-	pv/widgets/colorpopup.cpp
-	pv/widgets/devicetoolbutton.cpp
-	pv/widgets/exportmenu.cpp
-	pv/widgets/flowlayout.cpp
-	pv/widgets/importmenu.cpp
-	pv/widgets/popup.cpp
-	pv/widgets/popuptoolbutton.cpp
-	pv/widgets/sweeptimingwidget.cpp
-	pv/widgets/timestampspinbox.cpp
-	pv/widgets/wellarray.cpp
+pv/widgets/colorpopup.cpp
+pv/widgets/devicetoolbutton.cpp
+pv/widgets/exportmenu.cpp
+pv/widgets/flowlayout.cpp
+pv/widgets/importmenu.cpp
+pv/widgets/jumperlessconfig.cpp
+pv/widgets/popup.cpp
+pv/widgets/popuptoolbutton.cpp
+pv/widgets/sweeptimingwidget.cpp
+pv/widgets/timestampspinbox.cpp
+pv/widgets/wellarray.cpp
 )
 
 # This list includes only QObject derived class headers.
@@ -460,16 +461,17 @@ set(pulseview_HEADERS
 	pv/views/viewbase.hpp
 	pv/views/trace/standardbar.hpp
 	pv/widgets/colorbutton.hpp
-	pv/widgets/colorpopup.hpp
-	pv/widgets/devicetoolbutton.hpp
-	pv/widgets/exportmenu.hpp
-	pv/widgets/flowlayout.hpp
-	pv/widgets/importmenu.hpp
-	pv/widgets/popup.hpp
-	pv/widgets/popuptoolbutton.hpp
-	pv/widgets/sweeptimingwidget.hpp
-	pv/widgets/timestampspinbox.hpp
-	pv/widgets/wellarray.hpp
+pv/widgets/colorpopup.hpp
+pv/widgets/devicetoolbutton.hpp
+pv/widgets/exportmenu.hpp
+pv/widgets/flowlayout.hpp
+pv/widgets/importmenu.hpp
+pv/widgets/jumperlessconfig.hpp
+pv/widgets/popup.hpp
+pv/widgets/popuptoolbutton.hpp
+pv/widgets/sweeptimingwidget.hpp
+pv/widgets/timestampspinbox.hpp
+pv/widgets/wellarray.hpp
 )
 
 set(pulseview_RESOURCES

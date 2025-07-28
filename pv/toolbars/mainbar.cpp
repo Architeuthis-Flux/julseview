@@ -114,7 +114,8 @@ MainBar::MainBar(Session &session, QWidget *parent, pv::views::trace::View *view
 #ifdef ENABLE_DECODE
 	add_decoder_button_(new QToolButton()),
 #endif
-	add_math_signal_button_(new QToolButton())
+	add_math_signal_button_(new QToolButton()),
+	jumperless_config_(this)
 {
 	setObjectName(QString::fromUtf8("MainBar"));
 
@@ -291,6 +292,10 @@ MainBar::MainBar(Session &session, QWidget *parent, pv::views::trace::View *view
 		this, SLOT(on_capture_state_changed(int)));
 	connect(&session, SIGNAL(device_changed()),
 		this, SLOT(on_device_changed()));
+
+	// Connect Jumperless config widget
+	connect(&jumperless_config_, SIGNAL(config_changed()),
+		this, SLOT(on_config_changed()));
 
 	update_device_list();
 }
@@ -541,17 +546,41 @@ void MainBar::update_device_config_widgets()
 	}
 
 	const shared_ptr<sigrok::Device> sr_dev = device->device();
-	if (!sr_dev)
+	if (!sr_dev) {
+		// Device exists but sigrok device is invalid
+		configure_button_action_->setVisible(false);
+		channels_button_action_->setVisible(false);
+		sample_count_.show_none();
+		sample_rate_.show_none();
 		return;
+	}
+
+	// Additional safety check: ensure the session device matches our selected device
+	if (session_.device() != device) {
+		qWarning() << "MainBar: Selected device doesn't match session device, skipping widget update";
+		configure_button_action_->setVisible(false);
+		channels_button_action_->setVisible(false);
+		sample_count_.show_none();
+		sample_rate_.show_none();
+		return;
+	}
 
 	// Update the configure popup
 	DeviceOptions *const opts = new DeviceOptions(sr_dev, this);
 	configure_button_action_->setVisible(!opts->binding().properties().empty());
 	configure_button_.set_popup(opts);
 
-	// Update the channels popup
-	Channels *const channels = new Channels(session_, this);
-	channels_button_.set_popup(channels);
+	// Update the channels popup with error handling
+	try {
+		Channels *const channels = new Channels(session_, this);
+		channels_button_.set_popup(channels);
+	} catch (const std::exception& e) {
+		qWarning() << "MainBar: Error creating channels popup:" << e.what();
+		channels_button_action_->setVisible(false);
+	} catch (...) {
+		qWarning() << "MainBar: Unknown error creating channels popup";
+		channels_button_action_->setVisible(false);
+	}
 
 	// Update supported options.
 	sample_count_supported_ = false;
@@ -784,6 +813,11 @@ void MainBar::on_device_changed()
 {
 	update_device_list();
 	update_device_config_widgets();
+	
+	// Update Jumperless config widget
+	const shared_ptr<devices::Device> device = device_selector_.selected_device();
+	qDebug() << "MainBar::on_device_changed - updating Jumperless config with device";
+	jumperless_config_.set_device(device);
 }
 
 void MainBar::on_capture_state_changed(int state)
@@ -907,10 +941,30 @@ void MainBar::on_actionConnect_triggered()
 
 	// If the user selected a device, select it in the device list. Select the
 	// current device otherwise.
-	if (dlg.exec())
-		session_.select_device(dlg.get_selected_device());
+	if (dlg.exec()) {
+		try {
+			session_.select_device(dlg.get_selected_device());
+		} catch (const std::exception &e) {
+			QMessageBox::warning(this, tr("Device Connection Error"),
+				tr("Failed to connect to device. Device may be disconnected or busy.\n\nError: %1").arg(e.what()));
+		} catch (...) {
+			QMessageBox::warning(this, tr("Device Connection Error"),
+				tr("Failed to connect to device. Device may be disconnected or busy."));
+		}
+	}
 
-	update_device_list();
+	// Safely update device list with additional error handling
+	try {
+		update_device_list();
+	} catch (const std::exception &e) {
+		qWarning() << "Error updating device list after connection attempt:" << e.what();
+		// Reset device selector to avoid showing invalid devices
+		device_selector_.reset();
+	} catch (...) {
+		qWarning() << "Unknown error updating device list after connection attempt";
+		// Reset device selector to avoid showing invalid devices  
+		device_selector_.reset();
+	}
 }
 
 void MainBar::on_add_decoder_clicked()
@@ -939,6 +993,12 @@ void MainBar::add_toolbar_widgets()
 	channels_button_action_ = addWidget(&channels_button_);
 	addWidget(&sample_count_);
 	addWidget(&sample_rate_);
+	
+	// Add Jumperless configuration widget
+	addSeparator();
+	addWidget(&jumperless_config_);
+	qDebug() << "Added Jumperless config widget to MainBar toolbar";
+	
 #ifdef ENABLE_DECODE
 	addSeparator();
 	addWidget(add_decoder_button_);

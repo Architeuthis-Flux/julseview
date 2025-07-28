@@ -37,6 +37,7 @@
 #include <pv/widgets/devicetoolbutton.hpp>
 #include <pv/widgets/popuptoolbutton.hpp>
 #include <pv/widgets/sweeptimingwidget.hpp>
+#include <pv/widgets/jumperlessconfig.hpp>
 
 using std::shared_ptr;
 
@@ -188,6 +189,8 @@ private:
 #endif
 
 	QToolButton *add_math_signal_button_;
+	
+	pv::widgets::JumperlessConfig jumperless_config_;
 };
 
 } // namespace toolbars

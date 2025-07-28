@@ -79,6 +79,12 @@ const QString GlobalSettings::Key_Dec_AlwaysShowAllRows = "Dec_AlwaysShowAllRows
 const QString GlobalSettings::Key_Log_BufferSize = "Log_BufferSize";
 const QString GlobalSettings::Key_Log_NotifyOfStacktrace = "Log_NotifyOfStacktrace";
 
+// Device Connection Defaults
+const QString GlobalSettings::Key_Device_DefaultDriver = "Device_DefaultDriver";
+const QString GlobalSettings::Key_Device_DefaultInterface = "Device_DefaultInterface";
+const QString GlobalSettings::Key_Device_DefaultSerialPort = "Device_DefaultSerialPort";
+const QString GlobalSettings::Key_Device_DefaultBaudRate = "Device_DefaultBaudRate";
+
 vector<GlobalSettingsInterface*> GlobalSettings::callbacks_;
 bool GlobalSettings::tracking_ = false;
 bool GlobalSettings::is_dark_theme_ = false;
@@ -181,6 +187,19 @@ void GlobalSettings::set_defaults_where_needed()
 	// Default theme is bright, so use its color scheme if undefined
 	if (!contains(Key_View_CursorFillColor))
 		set_bright_theme_default_colors();
+	
+	// Device Connection Defaults - Set Jumperless as preferred
+	if (!contains(Key_Device_DefaultDriver))
+		setValue(Key_Device_DefaultDriver, "jumperless-mixed-signal");
+	
+	if (!contains(Key_Device_DefaultInterface))
+		setValue(Key_Device_DefaultInterface, "serial");
+		
+	if (!contains(Key_Device_DefaultSerialPort))
+		setValue(Key_Device_DefaultSerialPort, "/dev/cu.usbmodemJLV5port5");
+		
+	if (!contains(Key_Device_DefaultBaudRate))
+		setValue(Key_Device_DefaultBaudRate, "115200");
 }
 
 void GlobalSettings::set_bright_theme_default_colors()

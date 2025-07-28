@@ -20,6 +20,7 @@
 #include <boost/algorithm/string/join.hpp>
 
 #include <QString>
+#include <string>
 
 #include <libsigrokcxx/libsigrokcxx.hpp>
 
@@ -55,16 +56,61 @@ HardwareDevice::~HardwareDevice()
 string HardwareDevice::full_name() const
 {
 	vector<string> parts = {};
-	if (device_->vendor().length() > 0)
-		parts.push_back(device_->vendor());
-	if (device_->model().length() > 0)
-		parts.push_back(device_->model());
-	if (device_->version().length() > 0)
-		parts.push_back(device_->version());
-	if (device_->serial_number().length() > 0)
-		parts.push_back("[S/N: " + device_->serial_number() + "]");
-	if (device_->connection_id().length() > 0)
-		parts.push_back("(" + device_->connection_id() + ")");
+	
+	// Check if device is valid
+	if (!device_) {
+		return "(Invalid Device)";
+	}
+	
+	try {
+		if (device_->vendor().length() > 0)
+			parts.push_back(device_->vendor());
+	} catch (const sigrok::Error &e) {
+		// Ignore vendor errors
+	} catch (...) {
+		// Ignore any other vendor errors
+	}
+	
+	try {
+		if (device_->model().length() > 0)
+			parts.push_back(device_->model());
+	} catch (const sigrok::Error &e) {
+		// Ignore model errors
+	} catch (...) {
+		// Ignore any other model errors
+	}
+	
+	try {
+		if (device_->version().length() > 0)
+			parts.push_back(device_->version());
+	} catch (const sigrok::Error &e) {
+		// Ignore version errors
+	} catch (...) {
+		// Ignore any other version errors
+	}
+	
+	try {
+		if (device_->serial_number().length() > 0)
+			parts.push_back("[S/N: " + device_->serial_number() + "]");
+	} catch (const sigrok::Error &e) {
+		// Ignore serial number errors
+	} catch (...) {
+		// Ignore any other serial number errors
+	}
+	
+	try {
+		if (device_->connection_id().length() > 0)
+			parts.push_back("(" + device_->connection_id() + ")");
+	} catch (const sigrok::Error &e) {
+		// Ignore connection ID errors
+	} catch (...) {
+		// Ignore any other connection ID errors
+	}
+	
+	if (parts.empty()) {
+		return "(Disconnected Device)";
+	}
+	
 	return join(parts, " ");
 }
 
@@ -76,6 +122,11 @@ shared_ptr<sigrok::HardwareDevice> HardwareDevice::hardware_device() const
 string HardwareDevice::display_name(
 	const DeviceManager &device_manager) const
 {
+	// Check if device is valid
+	if (!device_) {
+		return "(Invalid Device)";
+	}
+	
 	const auto hw_dev = hardware_device();
 
 	// If we can find another device with the same model/vendor then
@@ -84,28 +135,59 @@ string HardwareDevice::display_name(
 	const bool multiple_dev = hw_dev && any_of(
 		devices.begin(), devices.end(),
 		[&](shared_ptr<devices::HardwareDevice> dev) {
-			return dev->hardware_device()->vendor() ==
-					hw_dev->vendor() &&
-				dev->hardware_device()->model() ==
-					hw_dev->model() &&
-				dev->device_ != device_;
+			try {
+				return dev->hardware_device()->vendor() ==
+						hw_dev->vendor() &&
+					dev->hardware_device()->model() ==
+						hw_dev->model() &&
+					dev->device_ != device_;
+			} catch (...) {
+				return false; // Skip devices that can't be accessed
+			}
 		});
 
 	vector<string> parts = {};
-	if (device_->vendor().length() > 0)
-		parts.push_back(device_->vendor());
-	if (device_->model().length() > 0)
-		parts.push_back(device_->model());
+	
+	try {
+		if (device_->vendor().length() > 0)
+			parts.push_back(device_->vendor());
+	} catch (...) {
+		// Ignore vendor errors
+	}
+	
+	try {
+		if (device_->model().length() > 0)
+			parts.push_back(device_->model());
+	} catch (...) {
+		// Ignore model errors
+	}
 
 	if (multiple_dev) {
-		if (device_->version().length() > 0)
-			parts.push_back(device_->version());
-		if (device_->serial_number().length() > 0)
-			parts.push_back("[S/N: " + device_->serial_number() + "]");
+		try {
+			if (device_->version().length() > 0)
+				parts.push_back(device_->version());
+		} catch (...) {
+			// Ignore version errors
+		}
+		
+		try {
+			if (device_->serial_number().length() > 0)
+				parts.push_back("[S/N: " + device_->serial_number() + "]");
+		} catch (...) {
+			// Ignore serial number errors
+		}
 
-		if ((device_->serial_number().length() == 0) &&
-			(device_->connection_id().length() > 0))
-			parts.push_back("(" + device_->connection_id() + ")");
+		try {
+			if ((device_->serial_number().length() == 0) &&
+				(device_->connection_id().length() > 0))
+				parts.push_back("(" + device_->connection_id() + ")");
+		} catch (...) {
+			// Ignore connection ID errors
+		}
+	}
+
+	if (parts.empty()) {
+		return "(Disconnected Device)";
 	}
 
 	return join(parts, " ");

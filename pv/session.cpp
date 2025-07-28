@@ -557,6 +557,12 @@ void Session::select_device(shared_ptr<devices::Device> device)
 			set_default_device();
 	} catch (const QString &e) {
 		MainWindow::show_session_error(tr("Failed to select device"), e);
+	} catch (const std::exception &e) {
+		QString error_msg = QString("Device error (device may be disconnected): %1").arg(e.what());
+		MainWindow::show_session_error(tr("Device Connection Error"), error_msg);
+	} catch (...) {
+		QString error_msg = tr("Unknown device error occurred. Device may be disconnected or unavailable.");
+		MainWindow::show_session_error(tr("Device Connection Error"), error_msg);
 	}
 }
 
@@ -567,8 +573,17 @@ void Session::set_device(shared_ptr<devices::Device> device)
 	// Ensure we are not capturing before setting the device
 	stop_capture();
 
-	if (device_)
-		device_->close();
+	if (device_) {
+		try {
+			device_->close();
+		} catch (const std::exception& e) {
+			qWarning() << "Exception while closing device (device may be disconnected):" << e.what();
+			/* Don't propagate the exception - device is probably disconnected */
+		} catch (...) {
+			qWarning() << "Unknown exception while closing device (device may be disconnected)";
+			/* Don't propagate the exception - device is probably disconnected */
+		}
+	}
 
 	device_.reset();
 
