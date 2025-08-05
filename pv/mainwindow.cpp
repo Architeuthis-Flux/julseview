@@ -36,6 +36,7 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QShortcut>
+#include <QThread>
 #include <QWidget>
 
 #include "mainwindow.hpp"
@@ -55,8 +56,6 @@
 #include "views/decoder_binary/view.hpp"
 #include "views/tabular_decoder/view.hpp"
 #endif
-
-#include <libsigrokcxx/libsigrokcxx.hpp>
 
 using std::dynamic_pointer_cast;
 using std::make_shared;
@@ -419,9 +418,13 @@ void MainWindow::add_session_with_file(string open_file_name,
 
 void MainWindow::add_default_session()
 {
+	qDebug() << "=== add_default_session() called ===";
+	
 	// Only add the default session if there would be no session otherwise
-	if (sessions_.size() > 0)
+	if (sessions_.size() > 0) {
+		qDebug() << "Session already exists, returning early. Session count:" << sessions_.size();
 		return;
+	}
 
 	shared_ptr<Session> session = add_session();
 
@@ -430,21 +433,40 @@ void MainWindow::add_default_session()
 	// one of the auto detected devices that are not the demo device.
 	// Pick demo in the absence of "genuine" hardware devices.
 	shared_ptr<devices::HardwareDevice> user_device, other_device, demo_device;
+	
+	qDebug() << "=== Device Selection Debug ===";
+	qDebug() << "Total devices found:" << device_manager_.devices().size();
+	qDebug() << "User spec device:" << (device_manager_.user_spec_device() ? "Found" : "None");
+	
 	for (const shared_ptr<devices::HardwareDevice>& dev : device_manager_.devices()) {
+		QString dev_name = QString::fromStdString(dev->display_name(device_manager_));
+		QString driver_name = QString::fromStdString(dev->hardware_device()->driver()->name());
+		
+		qDebug() << "Device:" << dev_name << "Driver:" << driver_name;
+		
 		if (dev == device_manager_.user_spec_device()) {
 			user_device = dev;
+			qDebug() << "  -> This is the USER SPEC DEVICE (will be selected)";
 		} else if (dev->hardware_device()->driver()->name() == "demo") {
 			demo_device = dev;
+			qDebug() << "  -> This is a demo device";
 		} else {
 			other_device = dev;
+			qDebug() << "  -> This is another device";
 		}
 	}
-	if (user_device)
+	
+	if (user_device) {
+		qDebug() << "SELECTING USER DEVICE:" << QString::fromStdString(user_device->display_name(device_manager_));
 		session->select_device(user_device);
-	else if (other_device)
+	} else if (other_device) {
+		qDebug() << "SELECTING OTHER DEVICE:" << QString::fromStdString(other_device->display_name(device_manager_));
 		session->select_device(other_device);
-	else
+	} else {
+		qDebug() << "SELECTING DEMO DEVICE";
 		session->select_device(demo_device);
+	}
+	qDebug() << "=== End Device Selection Debug ===";
 }
 
 void MainWindow::save_sessions()
@@ -985,7 +1007,132 @@ void MainWindow::on_close_current_tab()
 }
 
 void MainWindow::on_session_error_raised(const QString text, const QString info_text) {
+	// Check if this is a device disconnection error for a Jumperless device
+	bool is_device_disconnection = text.contains("Device Connection Error", Qt::CaseInsensitive) ||
+	                              text.contains("Capture failed", Qt::CaseInsensitive) ||
+	                              info_text.contains("disconnected", Qt::CaseInsensitive) ||
+	                              info_text.contains("Resource busy", Qt::CaseInsensitive) ||
+	                              info_text.contains("Permission denied", Qt::CaseInsensitive) ||
+	                              info_text.contains("No such file or directory", Qt::CaseInsensitive);
+	
+	// Try to get the current session
+	shared_ptr<Session> current_session = last_focused_session_;
+	
+	// Check if this is a Jumperless device
+	bool is_jumperless_device = false;
+	if (current_session && current_session->device()) {
+		const shared_ptr<sigrok::Device> sr_dev = current_session->device()->device();
+		if (sr_dev) {
+			QString vendor = QString::fromStdString(sr_dev->vendor());
+			QString model = QString::fromStdString(sr_dev->model());
+			is_jumperless_device = vendor.contains("Jumperless", Qt::CaseInsensitive) ||
+			                      model.contains("Jumperless", Qt::CaseInsensitive) ||
+			                      vendor.contains("Architeuthis Flux", Qt::CaseInsensitive);
+		}
+	}
+	
+	// If this is a Jumperless device disconnection, attempt automatic reconnection
+	if (is_device_disconnection && is_jumperless_device && current_session) {
+		qDebug() << "Detected Jumperless device disconnection, attempting automatic reconnection...";
+		
+		// Attempt silent reconnection
+		if (attempt_device_reconnection(current_session)) {
+			qDebug() << "Automatic reconnection successful, suppressing error message";
+			return; // Don't show the original error since we reconnected successfully
+		} else {
+			qDebug() << "Automatic reconnection failed, showing enhanced error message";
+			
+			// Show enhanced error with reconnection failure (no popup during reconnection)
+			QMessageBox enhanced_msg;
+			enhanced_msg.setWindowTitle("Device Connection Error");
+			enhanced_msg.setText("Jumperless device disconnected and automatic reconnection failed.");
+			enhanced_msg.setInformativeText(QString("Original error: %1\n%2\n\nPlease manually reconnect using the Connect button in the toolbar.").arg(text, info_text));
+			enhanced_msg.setStandardButtons(QMessageBox::Ok);
+			enhanced_msg.setIcon(QMessageBox::Warning);
+			enhanced_msg.exec();
+			return;
+		}
+	}
+	
+	// Default behavior for non-Jumperless devices or non-disconnection errors
 	MainWindow::show_session_error(text, info_text);
+}
+
+bool MainWindow::attempt_device_reconnection(shared_ptr<Session> session)
+{
+	if (!session || !session->device()) {
+		return false;
+	}
+	
+	// For now, use a simplified approach with default Jumperless settings
+	QString target_driver = "jumperless";
+	QString target_port = "/dev/cu.usbmodemJLV5port5";
+	
+	qDebug() << "Attempting reconnection with driver:" << target_driver << "port:" << target_port;
+	
+	// Wait a bit for the device to be ready after disconnection  
+	QThread::msleep(1000);
+	
+	// Attempt reconnection with retry logic
+	for (int retry = 0; retry < 3; retry++) {
+		try {
+			qDebug() << "Reconnection attempt" << (retry + 1) << "of 3";
+			
+			// Stop any running capture first
+			session->stop_capture();
+			
+			// Find the jumperless driver
+			shared_ptr<sigrok::Driver> driver_ptr;
+			for (auto& entry : device_manager_.context()->drivers()) {
+				if (entry.first == target_driver.toStdString()) {
+					driver_ptr = entry.second;
+					break;
+				}
+			}
+			
+			if (!driver_ptr) {
+				qDebug() << "Could not find driver:" << target_driver;
+				continue;
+			}
+			
+					// Prepare scan options (using the same pattern as connect.cpp)
+		map<const sigrok::ConfigKey *, Glib::VariantBase> drvopts;
+		drvopts[sigrok::ConfigKey::CONN] = Glib::Variant<Glib::ustring>::create(target_port.toStdString());
+		drvopts[sigrok::ConfigKey::SERIALCOMM] = Glib::Variant<Glib::ustring>::create("115200/8n1/dtr=1/rts=0/flow=0");
+			
+			// Scan for devices
+			auto devices = device_manager_.driver_scan(driver_ptr, drvopts);
+			
+			if (!devices.empty()) {
+				// Found device, try to select it
+				shared_ptr<devices::HardwareDevice> new_device = devices.front();
+				session->select_device(new_device);
+				
+				qDebug() << "Successfully reconnected to Jumperless device!";
+				return true;
+			}
+			
+			// If scan failed, wait before retrying
+			if (retry < 2) {
+				qDebug() << "Scan failed, waiting before retry...";
+				QThread::msleep(2000);
+			}
+			
+		} catch (const std::exception &e) {
+			qDebug() << "Reconnection attempt failed:" << e.what();
+			if (retry < 2) {
+				QThread::msleep(2000);
+			}
+		} catch (...) {
+			qDebug() << "Reconnection attempt failed with unknown error";
+			if (retry < 2) {
+				QThread::msleep(2000);
+			}
+		}
+	}
+	
+	qDebug() << "All reconnection attempts failed";
+	return false;
 }
 
 } // namespace pv

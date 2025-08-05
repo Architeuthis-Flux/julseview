@@ -98,7 +98,7 @@ Device::Device(shared_ptr<sigrok::Configurable> configurable) :
 			break;
 
 		case SR_CONF_CAPTURE_RATIO:
-			bind_int(descr, "", "%", pair<int64_t, int64_t>(0, 100), get, set);
+			// Pre-trigger capture disabled - skip this configuration
 			break;
 
 		case SR_CONF_LIMIT_FRAMES:

@@ -108,6 +108,8 @@ private:
 	void restore_ui_settings();
 
 	shared_ptr<Session> get_tab_session(int index) const;
+	
+	bool attempt_device_reconnection(shared_ptr<Session> session);
 
 	void closeEvent(QCloseEvent *event);
 

@@ -189,14 +189,14 @@ void GlobalSettings::set_defaults_where_needed()
 		set_bright_theme_default_colors();
 	
 	// Device Connection Defaults - Set Jumperless as preferred
-	if (!contains(Key_Device_DefaultDriver))
-		setValue(Key_Device_DefaultDriver, "jumperless-mixed-signal");
+	// Force update to jumperless driver (migration from jumperless-mixed-signal)
+	setValue(Key_Device_DefaultDriver, "jumperless");
 	
 	if (!contains(Key_Device_DefaultInterface))
 		setValue(Key_Device_DefaultInterface, "serial");
 		
-	if (!contains(Key_Device_DefaultSerialPort))
-		setValue(Key_Device_DefaultSerialPort, "/dev/cu.usbmodemJLV5port5");
+	// Force update to correct port name  
+	setValue(Key_Device_DefaultSerialPort, "/dev/cu.usbmodemJLV5port5");
 		
 	if (!contains(Key_Device_DefaultBaudRate))
 		setValue(Key_Device_DefaultBaudRate, "115200");

@@ -116,6 +116,11 @@ DeviceManager::DeviceManager(shared_ptr<Context> context,
 	 */
 	user_spec_device_.reset();
 	if (!driver.empty()) {
+		qDebug() << "=== DeviceManager User Spec Device Setup ===";
+		qDebug() << "Driver string:" << QString::fromStdString(driver);
+		qDebug() << "User name:" << QString::fromStdString(user_name);
+		qDebug() << "User opts size:" << user_opts.size();
+		
 		shared_ptr<sigrok::Driver> scan_drv;
 		map<const ConfigKey *, VariantBase> scan_opts;
 
@@ -125,6 +130,8 @@ DeviceManager::DeviceManager(shared_ptr<Context> context,
 		map<string, shared_ptr<Driver>> drivers = context->drivers();
 		auto entry = drivers.find(user_name);
 		scan_drv = (entry != drivers.end()) ? entry->second : nullptr;
+		
+		qDebug() << "Driver lookup result:" << (scan_drv ? "Found" : "Not found");
 
 		/*
 		 * Convert generic string representation of options
@@ -133,6 +140,7 @@ DeviceManager::DeviceManager(shared_ptr<Context> context,
 		if (scan_drv && !user_opts.empty()) {
 			auto drv_opts = scan_drv->scan_options();
 			scan_opts = drive_scan_options(user_opts, drv_opts);
+			qDebug() << "Converted scan options, size:" << scan_opts.size();
 		}
 
 		/*
@@ -141,10 +149,21 @@ DeviceManager::DeviceManager(shared_ptr<Context> context,
 		 */
 		list< shared_ptr<devices::HardwareDevice> > found;
 		if (scan_drv) {
+			qDebug() << "Running targeted scan for driver:" << QString::fromStdString(user_name);
 			found = driver_scan(scan_drv, scan_opts);
-			if (!found.empty())
+			qDebug() << "Targeted scan found" << found.size() << "devices";
+			if (!found.empty()) {
 				user_spec_device_ = found.front();
+				qDebug() << "USER SPEC DEVICE SET:" << QString::fromStdString(user_spec_device_->display_name(*this));
+			} else {
+				qDebug() << "No devices found in targeted scan";
+			}
+		} else {
+			qDebug() << "No scan driver found - cannot run targeted scan";
 		}
+		qDebug() << "=== End DeviceManager User Spec Device Setup ===";
+	} else {
+		qDebug() << "No driver string provided - no user spec device will be set";
 	}
 	progress->setValue(entry_num++);
 }

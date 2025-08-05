@@ -462,8 +462,7 @@ bool JumperlessConfig::is_jumperless_device() const
 	
 	// Look for Jumperless-specific identifiers
 	bool is_jumperless = vendor.contains("Jumperless", Qt::CaseInsensitive) ||
-	                    model.contains("Jumperless", Qt::CaseInsensitive) ||
-	                    model.contains("Mixed-Signal", Qt::CaseInsensitive);
+	                    model.contains("Jumperless", Qt::CaseInsensitive);
 	
 	if (is_jumperless) {
 		qDebug() << "Detected Jumperless device:" << vendor << model;

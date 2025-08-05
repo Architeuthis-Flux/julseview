@@ -277,6 +277,21 @@ int main(int argc, char *argv[])
 	for (int i = 0; i < argc; i++)
 		open_files.emplace_back(argv[i]);
 
+	// If no driver was specified via command line, check GlobalSettings for default
+	if (driver.empty()) {
+		pv::GlobalSettings settings;
+		QString default_driver = settings.value(pv::GlobalSettings::Key_Device_DefaultDriver).toString();
+		QString default_port = settings.value(pv::GlobalSettings::Key_Device_DefaultSerialPort).toString();
+		if (!default_driver.isEmpty()) {
+			// Format: "driver:conn=port:serialcomm=115200/8n1/dtr=1/rts=0/flow=0"
+			driver = default_driver.toStdString();
+			if (!default_port.isEmpty()) {
+				driver += ":conn=" + default_port.toStdString() + ":serialcomm=115200/8n1/dtr=1/rts=0/flow=0";
+			}
+			qDebug() << "Using default driver from settings:" << QString::fromStdString(driver);
+		}
+	}
+
 	qRegisterMetaType<uint64_t>("uint64_t");
 	qRegisterMetaType<pv::util::Timestamp>("util::Timestamp");
 	qRegisterMetaType<SharedPtrToSegment>("SharedPtrToSegment");

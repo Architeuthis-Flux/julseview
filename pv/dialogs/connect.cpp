@@ -81,10 +81,16 @@ Connect::Connect(QWidget *parent, pv::DeviceManager &device_manager) :
 	if (!default_driver.isEmpty()) {
 		for (int i = 0; i < drivers_.count(); i++) {
 			QString item_text = drivers_.itemText(i);
-			if (item_text.contains(default_driver, Qt::CaseInsensitive)) {
-				drivers_.setCurrentIndex(i);
-				driver_selected(i);  // Trigger driver selection logic
-				break;
+			// Extract driver name from format "Long Name (driver_name)"
+			int start = item_text.lastIndexOf(QString("("));
+			int end = item_text.lastIndexOf(QString(")"));
+			if (start != -1 && end != -1 && end > start) {
+				QString driver_name = item_text.mid(start + 1, end - start - 1);
+				if (QString::compare(driver_name, default_driver, Qt::CaseInsensitive) == 0) {
+					drivers_.setCurrentIndex(i);
+					driver_selected(i);  // Trigger driver selection logic
+					break;
+				}
 			}
 		}
 	}
